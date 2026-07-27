@@ -1,0 +1,21 @@
+.layout-box, .outlet-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.outlet-container {
+    max-width: 1360px !important;
+    padding-top: 42px;
+    padding-bottom: 64px;
+    padding-left: 28px !important;
+    padding-right: 28px !important;
+}
+
+@media (max-width: 600px) {
+    .outlet-container {
+        padding-top: 26px;
+        padding-left: 16px !important;
+        padding-right: 16px !important;
+    }
+}

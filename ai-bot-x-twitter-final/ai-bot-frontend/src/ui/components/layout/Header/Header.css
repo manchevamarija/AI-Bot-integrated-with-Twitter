@@ -1,0 +1,109 @@
+.app-header {
+    border-bottom: 1px solid #ECE3D3;
+    background: #FCFCFA !important;
+}
+
+.app-toolbar {
+    width: min(1360px, 100%);
+    min-height: 82px !important;
+    margin: 0 auto;
+    gap: 28px;
+    padding-inline: 28px !important;
+}
+
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    min-width: max-content;
+}
+
+.brand-link {
+    border-radius: 2px;
+    transition: opacity 160ms ease;
+}
+
+.brand-link:hover {
+    opacity: 0.78;
+}
+
+.brand-link:focus-visible {
+    outline: 2px solid #D7263D;
+    outline-offset: 5px;
+}
+
+.brand-mark {
+    width: 42px !important;
+    height: 42px !important;
+    color: white !important;
+    background: #D7263D !important;
+    border-radius: 2px !important;
+}
+
+.brand-name {
+    color: #151515;
+    font-size: 0.92rem !important;
+    font-weight: 750 !important;
+    letter-spacing: 0.08em !important;
+    line-height: 1.15 !important;
+}
+
+.brand-caption {
+    color: #666666;
+    font-size: 0.68rem !important;
+    margin-top: 3px !important;
+}
+
+.desktop-nav {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    margin-left: 26px;
+}
+
+.nav-button {
+    color: #666666 !important;
+    padding: 10px 13px !important;
+    font-size: 0.88rem !important;
+    font-weight: 600 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    outline: 0 !important;
+    box-shadow: none;
+}
+
+.nav-button:hover,
+.nav-button:focus,
+.nav-button:focus-visible {
+    color: #151515 !important;
+    background: transparent !important;
+    outline: 0 !important;
+}
+
+.nav-button.active {
+    color: #151515 !important;
+    background: transparent !important;
+    box-shadow: inset 0 -2px #D7263D;
+}
+
+.drawer-brand {
+    margin: 4px 8px 20px;
+}
+
+@media (max-width: 900px) {
+    .desktop-nav { display: none; }
+    .brand-caption { display: none; }
+}
+
+@media (max-width: 600px) {
+    .app-toolbar {
+        min-height: 68px !important;
+        padding-inline: 16px !important;
+        gap: 12px;
+    }
+    .brand-mark {
+        width: 36px !important;
+        height: 36px !important;
+    }
+}
