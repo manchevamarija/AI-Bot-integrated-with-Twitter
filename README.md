@@ -1,9 +1,5 @@
 # AI Bot интеграција со X
 
-> Целосно објаснување на архитектурата, имплементацијата и сите нови
-> функционалности има во [DOKUMENTACIJA.md](DOKUMENTACIJA.md). За презентација
-> користи [VODIC_ZA_ODBRANA.md](VODIC_ZA_ODBRANA.md), а пред предавање помини
-> го [CHECKLIST_ZA_PREDAVANJE.md](CHECKLIST_ZA_PREDAVANJE.md).
 
 Spring Boot и React апликација за пронаоѓање реална македонска содржина на X,
 извлекување текст и медиуми, јазична проценка и подготовка на проверливи
