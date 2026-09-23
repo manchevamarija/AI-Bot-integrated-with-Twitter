@@ -1,5 +1,6 @@
 package mk.ukim.finki.aibotbackend.web.handler;
 
+import lombok.extern.slf4j.Slf4j;
 import mk.ukim.finki.aibotbackend.model.exception.DonationBatchNotFoundException;
 import mk.ukim.finki.aibotbackend.model.exception.InvalidDonationStateException;
 import mk.ukim.finki.aibotbackend.model.exception.PostNotFoundException;
@@ -12,6 +13,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 @RestControllerAdvice(assignableTypes = DonationController.class)
+@Slf4j
 public class DonationControllerExceptionHandler {
     @ExceptionHandler({DonationBatchNotFoundException.class, PostNotFoundException.class})
     public ResponseEntity<ApiError> handleNotFound(RuntimeException exception) {
@@ -29,6 +31,7 @@ public class DonationControllerExceptionHandler {
 
     @ExceptionHandler(VezilkaIntegrationException.class)
     public ResponseEntity<ApiError> handleVezilkaFailure(VezilkaIntegrationException exception) {
+        log.error("Vezilka donation submission failed", exception);
         return ResponseEntity
             .status(HttpStatus.BAD_GATEWAY)
             .body(ApiError.of(HttpStatus.BAD_GATEWAY, exception.getMessage()));

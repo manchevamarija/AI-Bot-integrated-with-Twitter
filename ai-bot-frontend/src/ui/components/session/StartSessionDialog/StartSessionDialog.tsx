@@ -10,12 +10,15 @@ import {
   MenuItem,
   Slider,
   Stack,
+  ToggleButton,
+  ToggleButtonGroup,
   TextField,
   Typography,
 } from '@mui/material';
 import { useState } from 'react';
 import useSessions from '../../../../hooks/useSessions.ts';
 import type { TargetType } from '../../../../api/types/session.ts';
+import { MAX_TARGET_LENGTH, xSearchUrl, type SearchOrder } from '../../../../utils/xSearch.ts';
 
 interface StartSessionDialogProps {
   open: boolean;
@@ -34,6 +37,7 @@ const StartSessionDialog = ({ open, onClose }: StartSessionDialogProps) => {
   const [description, setDescription] = useState('Македонска содржина од X');
   const [type, setType] = useState<TargetType>('KEYWORD');
   const [value, setValue] = useState('Скопје, Македонија');
+  const [order, setOrder] = useState<SearchOrder>('live');
   const [maxPosts, setMaxPosts] = useState(30);
   const [minConfidence, setMinConfidence] = useState(50);
   const [includeText, setIncludeText] = useState(true);
@@ -52,10 +56,20 @@ const StartSessionDialog = ({ open, onClose }: StartSessionDialogProps) => {
       const uniqueValues = [...new Map(
         values.map(item => [item.toLocaleLowerCase('mk'), item]),
       ).values()];
+      const searchable = type === 'KEYWORD' || type === 'HASHTAG';
+      // Popular results are a direct X search URL, so the backend and the
+      // bot need no new target type: FEED_URL already navigates anywhere on X.
+      const targets = searchable && order === 'top'
+        ? uniqueValues.map(item => ({ type: 'FEED_URL' as TargetType, value: xSearchUrl(item, type, 'top') }))
+        : uniqueValues.map(item => ({ type, value: item }));
+      if (targets.some(target => target.value.length > MAX_TARGET_LENGTH)) {
+        setError('Некој збор е предолг за пребарување на популарни објави. Скрати го.');
+        return;
+      }
       await onCreate({
         socialNetwork: 'X',
         description: description.trim(),
-        targets: uniqueValues.map(item => ({ type, value: item })),
+        targets,
         maxPosts,
         minMacedonianConfidence: minConfidence / 100,
         includeText,
@@ -110,6 +124,27 @@ const StartSessionDialog = ({ open, onClose }: StartSessionDialogProps) => {
             : 'Внесете една вредност'}
           onChange={event => setValue(event.target.value)}
         />
+
+        {(type === 'KEYWORD' || type === 'HASHTAG') && (
+          <Stack spacing={0.8} sx={{ mt: 1.5 }}>
+            <Typography variant='body2'>Кои објави да се бараат</Typography>
+            <ToggleButtonGroup
+              exclusive
+              size='small'
+              value={order}
+              aria-label='Кои објави да се бараат'
+              onChange={(_, next: SearchOrder | null) => next && setOrder(next)}
+            >
+              <ToggleButton value='live' sx={{ px: 2, textTransform: 'none' }}>Најнови</ToggleButton>
+              <ToggleButton value='top' sx={{ px: 2, textTransform: 'none' }}>Најпопуларни</ToggleButton>
+            </ToggleButtonGroup>
+            <Typography variant='caption' color='text.secondary'>
+              {order === 'top'
+                ? 'Јазичето „Top“ на X: објави со најмногу лајкови, репостови и одговори.'
+                : 'Јазичето „Latest“ на X: најсвежите објави, обично со помалку реакции.'}
+            </Typography>
+          </Stack>
+        )}
 
         <Stack spacing={0.5} sx={{ mt: 2 }}>
           <Typography variant='body2'>Максимум објави: {maxPosts}</Typography>

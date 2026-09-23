@@ -52,7 +52,7 @@ public class DonationServiceIntegrationTest {
             session, "123", "finki", "Ова е македонски текст", "https://x.com/finki/status/123", null, 0.95
         ));
         org.mockito.Mockito.when(vezilkaClient.submitTextDonation(org.mockito.ArgumentMatchers.any()))
-            .thenReturn(new DonationReceipt("vezilka-123", "accepted"));
+            .thenReturn(new DonationReceipt("vezilka-123", "accepted", false, 0, null, "Accepted"));
 
         var draft = donationService.createBatch(List.of(post.getId()));
         org.assertj.core.api.Assertions.assertThat(draft.getStatus()).isEqualTo(DonationStatus.DRAFT);
@@ -63,5 +63,23 @@ public class DonationServiceIntegrationTest {
         org.assertj.core.api.Assertions.assertThat(submitted.getStatus()).isEqualTo(DonationStatus.SUBMITTED);
         org.assertj.core.api.Assertions.assertThat(submitted.getVezilkaReference()).isEqualTo("vezilka-123");
         org.mockito.Mockito.verify(vezilkaClient).submitTextDonation(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void batchIsRejectedWhenVezilkaAcceptsNoneOfTheItems() {
+        ExtractionSession session = sessionRepository.save(new ExtractionSession(SocialNetwork.X, "test"));
+        ExtractedPost post = postRepository.save(new ExtractedPost(
+            session, "124", "finki", "This is English, not Macedonian",
+            "https://x.com/finki/status/124", null, 0.05
+        ));
+        org.mockito.Mockito.when(vezilkaClient.submitTextDonation(org.mockito.ArgumentMatchers.any()))
+            .thenReturn(new DonationReceipt("vezilka-124", "rejected", false, null, "not_macedonian", "Rejected"));
+
+        var draft = donationService.createBatch(List.of(post.getId()));
+        donationService.approve(draft.getId());
+        var result = donationService.submit(draft.getId());
+
+        org.assertj.core.api.Assertions.assertThat(result.getStatus()).isEqualTo(DonationStatus.REJECTED);
+        org.assertj.core.api.Assertions.assertThat(result.getVezilkaReference()).isEqualTo("vezilka-124");
     }
 }

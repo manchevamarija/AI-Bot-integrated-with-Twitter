@@ -259,23 +259,31 @@ services работат со entities и repositories.
 
 ### 4.7 Vezilka интеграција
 
-`VezilkaHttpClient`:
+`VezilkaHttpClient` го користи официјалниот **Vezilka Public Donation API**
+(`POST /api/public/v1/donations/text/`), автентициран со header
+`X-Donation-Api-Key`. Модерацијата на Vezilka е автоматска и синхрона: одлуката
+`accepted`/`rejected` за секоја ставка доаѓа веднаш во одговорот, без чекање.
 
-- формира text donation request;
-- праќа donation batch до конфигуриран endpoint;
-- го чува надворешниот reference;
-- го проверува статусот на веќе испратени batches;
-- ја претвора надворешната грешка во `VezilkaIntegrationException`.
+Бидејќи API-то прима **една ставка по повик**, `submit()` во `DonationServiceImpl`
+праќа по едно барање за секоја објава во batch-от, наместо целиот batch да се
+спои во еден текст. Секој одговор носи `status`, `deduped` и, кога е одбиена,
+`rejectionReason` (на пример `not_macedonian`). Дупликат (`deduped: true`) се
+смета за успех, бидејќи содржината веќе е во корпусот, не е грешка.
+
+Batch-от станува `SUBMITTED` ако барем една објава е прифатена (или дупликат);
+`vezilkaReference` тогаш е списокот со ID-та на успешните ставки, разделени со
+запирка. Ако сите се одбиени, batch-от станува `REJECTED`, а reference ги чува
+ID-та на обидите, за следливост.
 
 Donation lifecycle:
 
 ```text
 DRAFT → APPROVED → SUBMITTED → ACCEPTED
-                              ↘ REJECTED
+                  ↘ REJECTED
 ```
 
-Реален submit бара валиден `VEZILKA_API_KEY` и точен API contract. Без key може
-безбедно да се демонстрираат create и approve чекорите.
+Реален submit бара валиден `VEZILKA_API_KEY`. Без key може безбедно да се
+демонстрираат create и approve чекорите.
 
 ### 4.8 Frontend
 
@@ -561,7 +569,7 @@ Excel.
 - `XContentExtractor`
 - `MacedonianLanguageDetector`
 - `BotOrchestratorImpl`
-- `VezilkaHttpClient`
+- `VezilkaHttpClient` (Public Donation API integration)
 - `XApiClient`
 - `EngagementLabelParser`
 - `PostEngagement`
