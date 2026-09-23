@@ -200,6 +200,15 @@ Detector-от потоа беше заострен:
 стандардно се отвора со праг `50%`, па старите руски/српски/бугарски записи по
 reclassification повеќе не се прикажуваат во нормалниот преглед.
 
+#### Втора поправка: македонски глаголски форми
+
+Зборовите „беше“ и „биле“ беа истовремено во листата на македонски зборови и во
+листата на бугарски/српски зборови. Затоа обична реченица како „Вчера беше многу
+убав ден во Скопје“ добиваше `47%` и паѓаше под прагот. Двата збора се тргнати од
+странската листа, а бугарските и српските текстови и понатаму се препознаваат
+преку другите сигнали (`я`, `ъ`, „това“, „је“, „данас“...). Додадени се regression
+тестови за двете македонски реченици.
+
 ### 4.5 Оркестрација
 
 `BotOrchestratorImpl`:
@@ -219,6 +228,20 @@ reclassification повеќе не се прикажуваат во нормал
 
 `StaleRunningSessionRecovery` при стартување означува прекинати стари
 `RUNNING` сесии како `FAILED`.
+
+#### Stop и продолжување
+
+Претходно `Stop` само го менуваше статусот во базата, а ботот продолжуваше до
+крај и сесијата завршуваше како `FAILED`. Сега оркестраторот го проверува
+статусот пред секоја цел и по секој чекор на ботот. Кога сесијата е `PAUSED`:
+
+- ботот застанува на следниот чекор (најмногу неколку секунди);
+- објавите од завршените цели се зачувуваат;
+- во trace се запишува „Session stopped by user“;
+- сесијата останува `PAUSED` и може повторно да се стартува.
+
+При продолжување, објавите што веќе се зачувани во сесијата се бројат во
+лимитот и не се зачувуваат повторно.
 
 ### 4.6 Domain и application services
 
@@ -280,7 +303,35 @@ DRAFT → APPROVED → SUBMITTED → ACCEPTED
 Lazy loading го намали главниот production bundle од приближно `656 KB` на
 `309 KB`; страниците се вчитуваат како посебни chunks.
 
-### 4.9 Тестови
+### 4.9 Ангажман и најдобри објави
+
+`XContentExtractor` ги чита јавните бројачи под секоја објава. X ја опишува
+лентата со акции со ознака од типот
+`12 replies, 34 reposts, 1,234 likes, 5 bookmarks, 56789 views`; ако ја нема,
+се читаат поединечните копчиња (`reply`, `retweet`, `like`, `analytics`).
+`EngagementLabelParser` ги претвора `1,234`, `1.2K` и `3M` во броеви.
+
+Непознат бројач се чува како `null`, а не како `0`, за објава без податоци да
+не изгледа како објава без интеракции.
+
+Ангажманот се пресметува како `лајкови + 2 × репостови + 2 × одговори`.
+Прегледите не влегуваат во формулата, бидејќи X брои и пасивни прикажувања.
+Резултатот се чува во `engagement_score` (миграција `V7`) со индекс, па
+рангирањето е обично сортирање во базата.
+
+Frontend:
+
+- бројачите се прикажуваат на секоја картичка и во деталите за објава;
+- нова страница **Најдобри** со рангирање по ангажман, лајкови, репостови,
+  одговори или прегледи, филтер по сесија и македонски праг;
+- во деталите за сесија се прикажуваат вкупните бројачи и трите најангажирани
+  објави;
+- CSV export-от има колони `replies`, `reposts`, `likes`, `views` и
+  `engagementScore`.
+
+Во `LIVE_API` режим истите вредности се земаат од `public_metrics` на X API.
+
+### 4.10 Тестови
 
 Backend тестовите опфаќаат:
 
@@ -290,7 +341,10 @@ Backend тестовите опфаќаат:
 - session service transitions;
 - donation service integration;
 - Macedonian language detector;
-- Claude response/fallback однесување.
+- Claude response/fallback однесување;
+- парсирање на бројачите од X (`EngagementLabelParserTest`, `XContentExtractorTest`);
+- оркестратор: stop, продолжување без дупликати и зачувување на ангажманот
+  (`BotOrchestratorImplTest`).
 
 Frontend тестовите опфаќаат:
 
@@ -298,7 +352,9 @@ Frontend тестовите опфаќаат:
 - case-insensitive отстранување дупликати;
 - зачувување на extraction options;
 - post text filter;
-- Session ID filter и number conversion.
+- Session ID filter и number conversion;
+- форматирање и избор на бројачи за рангирање;
+- приказ на ред во рангирањето.
 
 ## 5. Database модел и миграции
 
@@ -323,6 +379,7 @@ Frontend тестовите опфаќаат:
 | `V4` | donations |
 | `V5` | bot action logs |
 | `V6` | max posts, language threshold и content options |
+| `V7` | бројачи за ангажман и `engagement_score` |
 
 `V6` додава:
 
@@ -360,7 +417,8 @@ Frontend тестовите опфаќаат:
 | `GET` | `/api/posts` | paged и filtered posts |
 | `GET` | `/api/posts/{id}` | детали |
 | `DELETE` | `/api/posts/{id}/delete` | бришење |
-| `GET` | `/api/posts/session/{sessionId}/statistics` | статистика |
+| `GET` | `/api/posts/session/{sessionId}/statistics` | статистика, вклучително вкупни бројачи |
+| `GET` | `/api/posts/top?metric=ENGAGEMENT&limit=10` | најдобри објави (`ENGAGEMENT`, `LIKES`, `REPOSTS`, `REPLIES`, `VIEWS`) |
 | `GET` | `/api/posts/export/json` | JSON export |
 | `GET` | `/api/posts/export/csv` | UTF-8 CSV export |
 
@@ -505,10 +563,13 @@ Excel.
 - `BotOrchestratorImpl`
 - `VezilkaHttpClient`
 - `XApiClient`
+- `EngagementLabelParser`
+- `PostEngagement`
 - `ExtractionAnalyticsController`
 - `SessionStatisticsDto`
 - `StaleRunningSessionRecovery`
 - `V6__add_extraction_session_options.sql`
+- `V7__add_post_engagement_metrics.sql`
 
 Frontend дополнувања:
 
@@ -519,5 +580,6 @@ Frontend дополнувања:
 - статистика и export;
 - responsive custom design;
 - lazy-loaded routes;
+- страница Најдобри објави, `TopPostRow` и `EngagementBar`;
 - Vitest test setup и component tests.
 

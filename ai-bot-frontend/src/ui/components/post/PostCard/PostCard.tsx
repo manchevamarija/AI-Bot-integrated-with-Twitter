@@ -11,6 +11,7 @@ import VideocamRoundedIcon from '@mui/icons-material/VideocamRounded';
 import { Link } from 'react-router';
 import type { PostResponse } from '../../../../api/types/post.ts';
 import { useState } from 'react';
+import EngagementBar from '../EngagementBar/EngagementBar.tsx';
 
 interface PostCardProps {
   post: PostResponse;
@@ -64,6 +65,10 @@ const PostCard = ({ post, onDelete }: PostCardProps) => {
           {hasVideo && <Chip size='small' icon={<VideocamRoundedIcon/>} label='Видео' variant='outlined'/>}
           {post.donationBatchId && <Chip size='small' color='success' icon={<CheckCircleRoundedIcon/>} label='Донирана' variant='outlined'/>}
         </Stack>
+
+        <Box sx={{ mt: 1.8 }}>
+          <EngagementBar post={post}/>
+        </Box>
       </CardContent>
       <Divider/>
       <CardActions sx={{ px: 2, py: 1.3 }}>

@@ -8,6 +8,7 @@ import java.time.ZoneOffset;
 import mk.ukim.finki.aibotbackend.bot.browser.PageSnapshot;
 import mk.ukim.finki.aibotbackend.model.dto.CreateExtractedPostDto;
 import mk.ukim.finki.aibotbackend.model.dto.CreateMediaItemDto;
+import mk.ukim.finki.aibotbackend.model.dto.PostEngagement;
 import mk.ukim.finki.aibotbackend.model.enums.MediaType;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Element;
@@ -35,10 +36,50 @@ public class XContentExtractor implements ContentExtractor {
             List<CreateMediaItemDto> media = new ArrayList<>();
             tweet.select("[data-testid=tweetPhoto] img").forEach(img -> media.add(new CreateMediaItemDto(MediaType.IMAGE, img.absUrl("src"), null)));
             tweet.select("video").forEach(video -> { String src = video.absUrl("src"); if (!src.isBlank()) media.add(new CreateMediaItemDto(MediaType.VIDEO, src, null)); });
-            result.add(new CreateExtractedPostDto(externalId, author, text.text(), sourceUrl, postedAt, null, media));
+            result.add(new CreateExtractedPostDto(
+                externalId, author, text.text(), sourceUrl, postedAt, null, media, engagement(tweet)));
         }
         return result.stream().filter(p -> p.sourceUrl() != null).collect(java.util.stream.Collectors.toMap(
             CreateExtractedPostDto::sourceUrl, p -> p, (a,b) -> a, java.util.LinkedHashMap::new)).values().stream().toList();
     }
-}
 
+    /**
+     * Reads reply, repost, like and view counters. The combined label of the
+     * action bar is preferred; individual buttons are the fallback.
+     */
+    static PostEngagement engagement(Element tweet) {
+        Element group = tweet.selectFirst("[role=group][aria-label]");
+        if (group != null) {
+            PostEngagement fromGroup = EngagementLabelParser.parseGroupLabel(group.attr("aria-label"));
+            if (fromGroup.isKnown()) {
+                Long views = fromGroup.views() != null ? fromGroup.views() : views(tweet);
+                return new PostEngagement(fromGroup.replies(), fromGroup.reposts(), fromGroup.likes(), views);
+            }
+        }
+        PostEngagement fromButtons = new PostEngagement(
+            button(tweet, "[data-testid=reply]"),
+            button(tweet, "[data-testid=retweet], [data-testid=unretweet]"),
+            button(tweet, "[data-testid=like], [data-testid=unlike]"),
+            views(tweet)
+        );
+        return fromButtons.isKnown() ? fromButtons : PostEngagement.UNKNOWN;
+    }
+
+    private static Long button(Element tweet, String selector) {
+        Element button = tweet.selectFirst(selector);
+        if (button == null) {
+            return null;
+        }
+        String label = button.attr("aria-label");
+        if (!label.isBlank()) {
+            return EngagementLabelParser.parseButtonLabel(label);
+        }
+        Long visible = EngagementLabelParser.parseCount(button.text());
+        return visible == null ? 0L : visible;
+    }
+
+    private static Long views(Element tweet) {
+        Element analytics = tweet.selectFirst("a[href$=/analytics]");
+        return analytics == null ? null : EngagementLabelParser.parseButtonLabel(analytics.attr("aria-label"));
+    }
+}

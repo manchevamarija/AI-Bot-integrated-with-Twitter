@@ -16,8 +16,29 @@ public record CreateExtractedPostDto(
     String sourceUrl,
     LocalDateTime postedAt,
     Double macedonianConfidence,
-    List<CreateMediaItemDto> mediaItems
+    List<CreateMediaItemDto> mediaItems,
+    PostEngagement engagement
 ) {
+    public CreateExtractedPostDto {
+        engagement = engagement == null ? PostEngagement.UNKNOWN : engagement;
+    }
+
+    /**
+     * Kept for extractors and tests that do not read engagement counters.
+     */
+    public CreateExtractedPostDto(
+        String externalId,
+        String authorHandle,
+        String content,
+        String sourceUrl,
+        LocalDateTime postedAt,
+        Double macedonianConfidence,
+        List<CreateMediaItemDto> mediaItems
+    ) {
+        this(externalId, authorHandle, content, sourceUrl, postedAt,
+            macedonianConfidence, mediaItems, PostEngagement.UNKNOWN);
+    }
+
     public CreateExtractedPostDto withMacedonianConfidence(Double confidence) {
         return new CreateExtractedPostDto(
             externalId,
@@ -26,7 +47,8 @@ public record CreateExtractedPostDto(
             sourceUrl,
             postedAt,
             confidence,
-            mediaItems
+            mediaItems,
+            engagement
         );
     }
 
@@ -40,6 +62,7 @@ public record CreateExtractedPostDto(
             postedAt,
             macedonianConfidence
         );
+        post.applyEngagement(engagement);
         if (mediaItems != null) {
             mediaItems
                 .stream()

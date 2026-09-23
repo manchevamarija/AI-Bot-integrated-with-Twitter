@@ -14,6 +14,7 @@ import java.util.List;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import mk.ukim.finki.aibotbackend.model.dto.PostEngagement;
 
 /**
  * A piece of content the bot extracted from the social network.
@@ -51,6 +52,23 @@ public class ExtractedPost extends BaseAuditableEntity {
      */
     private Double macedonianConfidence;
 
+    /**
+     * Public engagement counters read from X. {@code null} means X did not
+     * show the counter, not that the post had zero interactions.
+     */
+    private Long replyCount;
+
+    private Long repostCount;
+
+    private Long likeCount;
+
+    private Long viewCount;
+
+    /**
+     * likes + 2 x reposts + 2 x replies, stored so ranking is a plain indexed sort.
+     */
+    private Long engagementScore;
+
     @OneToMany(mappedBy = "post", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<MediaItem> mediaItems = new ArrayList<>();
 
@@ -78,5 +96,14 @@ public class ExtractedPost extends BaseAuditableEntity {
         this.sourceUrl = sourceUrl;
         this.postedAt = postedAt;
         this.macedonianConfidence = macedonianConfidence;
+    }
+
+    public void applyEngagement(PostEngagement engagement) {
+        PostEngagement value = engagement == null ? PostEngagement.UNKNOWN : engagement;
+        this.replyCount = value.replies();
+        this.repostCount = value.reposts();
+        this.likeCount = value.likes();
+        this.viewCount = value.views();
+        this.engagementScore = value.score();
     }
 }

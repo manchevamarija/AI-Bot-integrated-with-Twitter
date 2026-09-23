@@ -1,18 +1,22 @@
 package mk.ukim.finki.aibotbackend.bot.core;
 
+import java.util.HashSet;
 import java.util.LinkedHashMap;
-import java.util.Map;
 import java.util.List;
-import mk.ukim.finki.aibotbackend.model.domain.ExtractionTarget;
-import mk.ukim.finki.aibotbackend.model.dto.CreateMediaItemDto;
-import mk.ukim.finki.aibotbackend.model.enums.MediaType;
+import java.util.Map;
+import java.util.Set;
 import mk.ukim.finki.aibotbackend.bot.llm.BotAction;
+import mk.ukim.finki.aibotbackend.model.domain.ExtractedPost;
 import mk.ukim.finki.aibotbackend.model.domain.ExtractionSession;
+import mk.ukim.finki.aibotbackend.model.domain.ExtractionTarget;
 import mk.ukim.finki.aibotbackend.model.dto.CreateExtractedPostDto;
+import mk.ukim.finki.aibotbackend.model.dto.CreateMediaItemDto;
 import mk.ukim.finki.aibotbackend.model.enums.BotActionType;
+import mk.ukim.finki.aibotbackend.model.enums.MediaType;
 import mk.ukim.finki.aibotbackend.model.enums.SessionStatus;
 import mk.ukim.finki.aibotbackend.model.exception.InvalidSessionStateException;
 import mk.ukim.finki.aibotbackend.model.exception.SessionNotFoundException;
+import mk.ukim.finki.aibotbackend.model.exception.SessionStoppedException;
 import mk.ukim.finki.aibotbackend.service.domain.BotActionLogService;
 import mk.ukim.finki.aibotbackend.service.domain.ExtractedPostService;
 import mk.ukim.finki.aibotbackend.service.domain.ExtractionSessionService;
@@ -41,14 +45,21 @@ public class BotOrchestratorImpl implements BotOrchestrator {
     public synchronized void runSession(Long sessionId) {
         ExtractionSession session = requireRunningSession(sessionId);
         validateSupportedNetwork(session);
+
+        // A PAUSED session can be resumed. Posts saved by the earlier run count
+        // toward the limit and are never stored twice.
+        Set<String> alreadySaved = new HashSet<>();
+        extractedPostService.findAllBySessionId(sessionId)
+            .forEach(post -> alreadySaved.add(postKey(post)));
         Map<String, CreateExtractedPostDto> uniquePosts = new LinkedHashMap<>();
 
         try {
             socialNetworkBot.login();
             for (int targetIndex = 0; targetIndex < session.getTargets().size(); targetIndex++) {
+                ensureStillRunning(sessionId);
                 ExtractionTarget target = session.getTargets().get(targetIndex);
                 int remainingTargets = session.getTargets().size() - targetIndex;
-                int remainingCapacity = session.getMaxPosts() - uniquePosts.size();
+                int remainingCapacity = session.getMaxPosts() - alreadySaved.size() - uniquePosts.size();
                 int targetQuota = Math.max(
                     0,
                     (int) Math.ceil((double) remainingCapacity / remainingTargets)
@@ -60,8 +71,10 @@ public class BotOrchestratorImpl implements BotOrchestrator {
                 }
                 var extracted = socialNetworkBot.execute(
                     target,
-                    (action, successful) ->
-                        botActionLogService.log(session, action, successful)
+                    (action, successful) -> {
+                        botActionLogService.log(session, action, successful);
+                        ensureStillRunning(sessionId);
+                    }
                 );
 
                 int validCount = 0;
@@ -71,7 +84,10 @@ public class BotOrchestratorImpl implements BotOrchestrator {
                         continue;
                     }
                     validCount++;
-                    uniquePosts.putIfAbsent(postKey(filtered), filtered);
+                    String key = postKey(filtered);
+                    if (!alreadySaved.contains(key)) {
+                        uniquePosts.putIfAbsent(key, filtered);
+                    }
                     if (uniquePosts.size() - beforeTarget >= targetQuota) {
                         break;
                     }
@@ -82,19 +98,53 @@ public class BotOrchestratorImpl implements BotOrchestrator {
                 logTargetSummary(session, target.getValue(), newCount, duplicateCount);
             }
 
-            extractedPostService.saveAll(
-                uniquePosts.values().stream()
-                    .map(post -> post.toExtractedPost(session))
-                    .toList()
-            );
+            savePosts(session, uniquePosts);
             logSessionSummary(session, uniquePosts);
-            extractionSessionService.complete(sessionId);
+            completeUnlessStopped(sessionId, session, uniquePosts);
+        } catch (SessionStoppedException stopped) {
+            // The user pressed Stop: keep everything collected from finished
+            // targets and leave the session PAUSED so it can be resumed.
+            savePosts(session, uniquePosts);
+            logStopped(session, uniquePosts);
         } catch (RuntimeException exception) {
             extractionSessionService.fail(sessionId);
             throw exception;
         } finally {
             socialNetworkBot.shutdown();
         }
+    }
+
+    private void ensureStillRunning(Long sessionId) {
+        SessionStatus status = extractionSessionService.findById(sessionId)
+            .map(ExtractionSession::getStatus)
+            .orElseThrow(() -> new SessionNotFoundException(sessionId));
+        if (status != SessionStatus.RUNNING) {
+            throw new SessionStoppedException(sessionId);
+        }
+    }
+
+    private void completeUnlessStopped(
+        Long sessionId,
+        ExtractionSession session,
+        Map<String, CreateExtractedPostDto> uniquePosts
+    ) {
+        try {
+            extractionSessionService.complete(sessionId);
+        } catch (InvalidSessionStateException stoppedAtTheLastMoment) {
+            // Stop arrived after the last target finished; the posts are saved.
+            logStopped(session, uniquePosts);
+        }
+    }
+
+    private void savePosts(ExtractionSession session, Map<String, CreateExtractedPostDto> uniquePosts) {
+        if (uniquePosts.isEmpty()) {
+            return;
+        }
+        extractedPostService.saveAll(
+            uniquePosts.values().stream()
+                .map(post -> post.toExtractedPost(session))
+                .toList()
+        );
     }
 
     private CreateExtractedPostDto applySessionOptions(
@@ -123,7 +173,8 @@ public class BotOrchestratorImpl implements BotOrchestrator {
             post.sourceUrl(),
             post.postedAt(),
             confidence,
-            media
+            media,
+            post.engagement()
         );
     }
 
@@ -145,13 +196,21 @@ public class BotOrchestratorImpl implements BotOrchestrator {
     }
 
     private String postKey(CreateExtractedPostDto post) {
-        if (post.sourceUrl() != null && !post.sourceUrl().isBlank()) {
-            return post.sourceUrl();
+        return postKey(post.sourceUrl(), post.externalId(), post.authorHandle(), post.content());
+    }
+
+    private String postKey(ExtractedPost post) {
+        return postKey(post.getSourceUrl(), post.getExternalId(), post.getAuthorHandle(), post.getContent());
+    }
+
+    private String postKey(String sourceUrl, String externalId, String authorHandle, String content) {
+        if (sourceUrl != null && !sourceUrl.isBlank()) {
+            return sourceUrl;
         }
-        if (post.externalId() != null && !post.externalId().isBlank()) {
-            return post.externalId();
+        if (externalId != null && !externalId.isBlank()) {
+            return externalId;
         }
-        return post.authorHandle() + "\u0000" + post.content();
+        return authorHandle + "\u0000" + content;
     }
 
     private void logTargetSummary(
@@ -169,6 +228,15 @@ public class BotOrchestratorImpl implements BotOrchestrator {
         );
     }
 
+    private void logStopped(ExtractionSession session, Map<String, CreateExtractedPostDto> uniquePosts) {
+        String details = "Session stopped by user: %d new post(s) saved".formatted(uniquePosts.size());
+        botActionLogService.log(
+            session,
+            new BotAction(BotActionType.FINISH, null, null, details),
+            true
+        );
+    }
+
     private void logSessionSummary(
         ExtractionSession session,
         Map<String, CreateExtractedPostDto> uniquePosts
@@ -180,9 +248,13 @@ public class BotOrchestratorImpl implements BotOrchestrator {
             .filter(post -> post.macedonianConfidence() != null)
             .filter(post -> post.macedonianConfidence() >= 0.5)
             .count();
+        long withEngagement = uniquePosts.values().stream()
+            .filter(post -> post.engagement().isKnown())
+            .count();
 
-        String details = "Session completed: %d unique post(s), %d with media, %d above Macedonian threshold"
-            .formatted(uniquePosts.size(), withMedia, macedonian);
+        String details = ("Session completed: %d unique post(s), %d with media, "
+            + "%d above Macedonian threshold, %d with engagement counters")
+            .formatted(uniquePosts.size(), withMedia, macedonian, withEngagement);
         botActionLogService.log(
             session,
             new BotAction(BotActionType.FINISH, null, null, details),

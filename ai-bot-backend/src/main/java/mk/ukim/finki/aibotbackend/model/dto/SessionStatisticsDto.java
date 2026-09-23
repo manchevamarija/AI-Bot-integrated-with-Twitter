@@ -6,6 +6,10 @@ public record SessionStatisticsDto(
     long postsWithMedia,
     long imagePosts,
     long videoPosts,
-    long donatedPosts
+    long donatedPosts,
+    long totalLikes,
+    long totalReposts,
+    long totalReplies,
+    long totalViews
 ) {
 }

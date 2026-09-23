@@ -6,7 +6,10 @@ import java.util.List;
 import mk.ukim.finki.aibotbackend.model.dto.DisplayExtractedPostDto;
 import mk.ukim.finki.aibotbackend.model.dto.PostFilterDto;
 import mk.ukim.finki.aibotbackend.model.dto.SessionStatisticsDto;
+import mk.ukim.finki.aibotbackend.model.domain.ExtractedPost;
 import mk.ukim.finki.aibotbackend.model.enums.MediaType;
+import mk.ukim.finki.aibotbackend.model.enums.TopPostMetric;
+import java.util.function.Function;
 import mk.ukim.finki.aibotbackend.service.application.ExtractedPostApplicationService;
 import mk.ukim.finki.aibotbackend.service.domain.ExtractedPostService;
 import org.springframework.data.domain.Page;
@@ -83,7 +86,28 @@ public class ExtractedPostApplicationServiceImpl implements ExtractedPostApplica
             withMedia,
             withImages,
             withVideos,
-            donated
+            donated,
+            sum(posts, ExtractedPost::getLikeCount),
+            sum(posts, ExtractedPost::getRepostCount),
+            sum(posts, ExtractedPost::getReplyCount),
+            sum(posts, ExtractedPost::getViewCount)
         );
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<DisplayExtractedPostDto> findTop(PostFilterDto filter, TopPostMetric metric, int limit) {
+        TopPostMetric selected = metric == null ? TopPostMetric.ENGAGEMENT : metric;
+        return DisplayExtractedPostDto.from(
+            extractedPostService.findTop(filter, selected.attribute(), limit)
+        );
+    }
+
+    private long sum(List<ExtractedPost> posts, Function<ExtractedPost, Long> counter) {
+        return posts.stream()
+            .map(counter)
+            .filter(java.util.Objects::nonNull)
+            .mapToLong(Long::longValue)
+            .sum();
     }
 }

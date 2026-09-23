@@ -7,6 +7,11 @@ import { useParams } from 'react-router';
 import useSessionDetails from '../../../../hooks/useSessionDetails.ts';
 import SessionLogViewer from '../../../components/session/SessionLogViewer/SessionLogViewer.tsx';
 import postApi from '../../../../api/postApi.ts';
+import { useEffect } from 'react';
+import { Link } from 'react-router';
+import useTopPosts from '../../../../hooks/useTopPosts.ts';
+import TopPostRow from '../../../components/post/TopPostRow/TopPostRow.tsx';
+import { formatCount } from '../../../../utils/engagement.ts';
 
 const statusMeta: Record<SessionStatus, {
   label: string;
@@ -22,6 +27,15 @@ const statusMeta: Record<SessionStatus, {
 const SessionDetailsPage = () => {
   const { id = '' } = useParams<{ id: string }>();
   const { session, logs, statistics, loading, error, reload } = useSessionDetails(id);
+  const top = useTopPosts({ metric: 'ENGAGEMENT', limit: 3, sessionId: id ? Number(id) : undefined });
+  const reloadTop = top.reload;
+  const sessionStatus = session?.status;
+  const totalPosts = statistics?.totalPosts;
+
+  // Refresh the podium when the run finishes or new posts are saved.
+  useEffect(() => {
+    void reloadTop();
+  }, [sessionStatus, totalPosts, reloadTop]);
 
   const download = async (format: 'json' | 'csv') => {
     const response = await postApi.export(id, format);
@@ -52,6 +66,13 @@ const SessionDetailsPage = () => {
     ['Видеа', statistics?.videoPosts ?? 0],
     ['Донирани', statistics?.donatedPosts ?? 0],
   ] as const;
+  const engagementItems = [
+    ['Лајкови', statistics?.totalLikes ?? 0],
+    ['Репостови', statistics?.totalReposts ?? 0],
+    ['Одговори', statistics?.totalReplies ?? 0],
+    ['Прегледи', statistics?.totalViews ?? 0],
+  ] as const;
+  const leaderValue = top.posts[0]?.engagementScore ?? 0;
 
   return (
     <Stack spacing={3}>
@@ -133,6 +154,47 @@ const SessionDetailsPage = () => {
           </Grid>
         ))}
       </Grid>
+
+      <Grid container spacing={1.5}>
+        {engagementItems.map(([label, value]) => (
+          <Grid key={label} size={{ xs: 6, md: 3 }}>
+            <Card variant='outlined'>
+              <CardContent>
+                <Typography variant='h5' sx={{ fontVariantNumeric: 'tabular-nums' }}>{formatCount(value)}</Typography>
+                <Typography variant='caption' color='text.secondary'>{label} вкупно на X</Typography>
+              </CardContent>
+            </Card>
+          </Grid>
+        ))}
+      </Grid>
+
+      {top.posts.length > 0 && (
+        <Card>
+          <CardContent sx={{ p: { xs: 2, md: 3 } }}>
+            <Stack direction='row' sx={{ alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
+              <Box>
+                <Typography variant='h5'>Најангажирани објави од сесијата</Typography>
+                <Typography variant='body2' color='text.secondary'>
+                  Лајкови + 2 × репостови + 2 × одговори
+                </Typography>
+              </Box>
+              <Button component={Link} to='/top' variant='outlined' size='small'>Целосно рангирање</Button>
+            </Stack>
+            <Box component='ol' sx={{ m: 0, mt: 1, p: 0 }}>
+              {top.posts.map((post, index) => (
+                <TopPostRow
+                  key={post.id}
+                  post={post}
+                  rank={index + 1}
+                  metric='ENGAGEMENT'
+                  leaderValue={leaderValue}
+                  compact
+                />
+              ))}
+            </Box>
+          </CardContent>
+        </Card>
+      )}
 
       <SessionLogViewer logs={logs}/>
     </Stack>

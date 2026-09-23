@@ -21,6 +21,22 @@ export interface PostResponse {
   macedonianConfidence: number | null;
   mediaItems: MediaItemResponse[];
   donationBatchId: number | null;
+  /** Counters read from X; null means X did not show the counter. */
+  replyCount: number | null;
+  repostCount: number | null;
+  likeCount: number | null;
+  viewCount: number | null;
+  /** likes + 2 × reposts + 2 × replies */
+  engagementScore: number | null;
+}
+
+export type TopPostMetric = 'ENGAGEMENT' | 'LIKES' | 'REPOSTS' | 'REPLIES' | 'VIEWS';
+
+export interface TopPostsQuery {
+  metric: TopPostMetric;
+  limit: number;
+  sessionId?: number;
+  minMacedonianConfidence?: number;
 }
 
 /**
@@ -53,4 +69,8 @@ export interface SessionStatistics {
   imagePosts: number;
   videoPosts: number;
   donatedPosts: number;
+  totalLikes: number;
+  totalReposts: number;
+  totalReplies: number;
+  totalViews: number;
 }

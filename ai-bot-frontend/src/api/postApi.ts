@@ -1,5 +1,7 @@
 import axiosInstance from '../axios/axios.ts';
-import type { PageResponse, PostFilter, PostResponse, SessionStatistics } from './types/post.ts';
+import type {
+  PageResponse, PostFilter, PostResponse, SessionStatistics, TopPostsQuery,
+} from './types/post.ts';
 
 const postApi = {
   findAll: async (filter: PostFilter, page: number, size: number) => {
@@ -17,6 +19,9 @@ const postApi = {
   },
   delete: async (id: string) => {
     return await axiosInstance.delete<PostResponse>(`/posts/${id}/delete`);
+  },
+  top: async (query: TopPostsQuery) => {
+    return await axiosInstance.get<PostResponse[]>('/posts/top', { params: query });
   },
   statistics: async (sessionId: string) => {
     return await axiosInstance.get<SessionStatistics>(`/posts/session/${sessionId}/statistics`);

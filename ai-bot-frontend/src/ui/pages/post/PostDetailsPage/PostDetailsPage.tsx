@@ -7,6 +7,8 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'react-router';
 import postApi from '../../../../api/postApi.ts';
 import type { PostResponse } from '../../../../api/types/post.ts';
+import EngagementBar from '../../../components/post/EngagementBar/EngagementBar.tsx';
+import { formatFullCount } from '../../../../utils/engagement.ts';
 
 type Mp4VideoPlayerProps = {
   postId: number;
@@ -124,6 +126,10 @@ const PostDetailsPage = () => {
 
               <Typography sx={{ whiteSpace: 'pre-wrap', my: 3, lineHeight: 1.8, fontSize: '1.05rem' }}>{post.content}</Typography>
 
+              <Box sx={{ mb: 3 }}>
+                <EngagementBar post={post} size='medium'/>
+              </Box>
+
               <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(260px,1fr))', gap: 2 }}>
                 {images.map((media) => (
                   <Box
@@ -177,6 +183,17 @@ const PostDetailsPage = () => {
                     color={post.donationBatchId ? 'success' : 'default'}
                     label={post.donationBatchId ? `Batch #${post.donationBatchId}` : 'Не е донирана'}
                   />
+                </Box>
+                <Box>
+                  <Typography variant='caption' color='text.secondary'>АНГАЖМАН</Typography>
+                  <Typography variant='body2'>
+                    {formatFullCount(post.engagementScore)}
+                    {post.engagementScore !== null && (
+                      <Typography component='span' variant='caption' color='text.secondary'>
+                        {' '}(лајкови + 2 × репостови + 2 × одговори)
+                      </Typography>
+                    )}
+                  </Typography>
                 </Box>
                 <Box>
                   <Typography variant='caption' color='text.secondary'>МЕДИУМИ</Typography>

@@ -5,6 +5,7 @@ import java.util.List;
 import mk.ukim.finki.aibotbackend.model.dto.DisplayExtractedPostDto;
 import mk.ukim.finki.aibotbackend.model.dto.PostFilterDto;
 import mk.ukim.finki.aibotbackend.model.dto.SessionStatisticsDto;
+import mk.ukim.finki.aibotbackend.model.enums.TopPostMetric;
 import org.springframework.data.domain.Page;
 
 /**
@@ -22,4 +23,6 @@ public interface ExtractedPostApplicationService {
     List<DisplayExtractedPostDto> findAllBySessionId(Long sessionId);
 
     SessionStatisticsDto statistics(Long sessionId);
+
+    List<DisplayExtractedPostDto> findTop(PostFilterDto filter, TopPostMetric metric, int limit);
 }

@@ -19,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class ExtractedPostServiceImpl implements ExtractedPostService {
     private static final int MAX_PAGE_SIZE = 100;
+    private static final int MAX_TOP_SIZE = 50;
 
     private final ExtractedPostRepository extractedPostRepository;
 
@@ -70,6 +71,21 @@ public class ExtractedPostServiceImpl implements ExtractedPostService {
         Optional<ExtractedPost> post = extractedPostRepository.findById(id);
         post.ifPresent(extractedPostRepository::delete);
         return post;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ExtractedPost> findTop(PostFilterDto filter, String attribute, int limit) {
+        Specification<ExtractedPost> known = (root, query, criteriaBuilder) ->
+            criteriaBuilder.isNotNull(root.get(attribute));
+        PageRequest pageRequest = PageRequest.of(
+            0,
+            Math.clamp(limit, 1, MAX_TOP_SIZE),
+            Sort.by(Sort.Direction.DESC, attribute).and(Sort.by(Sort.Direction.DESC, "createdAt"))
+        );
+        return extractedPostRepository
+            .findAll(buildSpecification(filter).and(known), pageRequest)
+            .getContent();
     }
 
     private Specification<ExtractedPost> buildSpecification(PostFilterDto filter) {

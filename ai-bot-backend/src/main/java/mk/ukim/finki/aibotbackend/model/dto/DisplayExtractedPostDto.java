@@ -16,7 +16,12 @@ public record DisplayExtractedPostDto(
     LocalDateTime postedAt,
     Double macedonianConfidence,
     List<DisplayMediaItemDto> mediaItems,
-    Long donationBatchId
+    Long donationBatchId,
+    Long replyCount,
+    Long repostCount,
+    Long likeCount,
+    Long viewCount,
+    Long engagementScore
 ) {
     public static DisplayExtractedPostDto from(ExtractedPost post) {
         return new DisplayExtractedPostDto(
@@ -30,7 +35,12 @@ public record DisplayExtractedPostDto(
             post.getPostedAt(),
             post.getMacedonianConfidence(),
             DisplayMediaItemDto.from(post.getMediaItems()),
-            post.getDonationBatch() == null ? null : post.getDonationBatch().getId()
+            post.getDonationBatch() == null ? null : post.getDonationBatch().getId(),
+            post.getReplyCount(),
+            post.getRepostCount(),
+            post.getLikeCount(),
+            post.getViewCount(),
+            post.getEngagementScore()
         );
     }
 

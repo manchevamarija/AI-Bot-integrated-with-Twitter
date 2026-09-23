@@ -28,4 +28,10 @@ public interface ExtractedPostService {
     List<ExtractedPost> saveAll(List<ExtractedPost> posts);
 
     Optional<ExtractedPost> deleteById(Long id);
+
+    /**
+     * The highest-ranked posts by the given persisted numeric attribute,
+     * skipping posts where that counter is unknown.
+     */
+    List<ExtractedPost> findTop(PostFilterDto filter, String attribute, int limit);
 }

@@ -8,6 +8,7 @@ import HomeRoundedIcon from '@mui/icons-material/HomeRounded';
 import TravelExploreRoundedIcon from '@mui/icons-material/TravelExploreRounded';
 import ArticleRoundedIcon from '@mui/icons-material/ArticleRounded';
 import VolunteerActivismRoundedIcon from '@mui/icons-material/VolunteerActivismRounded';
+import EmojiEventsRoundedIcon from '@mui/icons-material/EmojiEventsRounded';
 import { Link, NavLink } from 'react-router';
 import { useState } from 'react';
 import AuthToggle from '../../auth/AuthToggle/AuthToggle.tsx';
@@ -26,6 +27,7 @@ const pages: Page[] = [
   { path: '/', name: 'Почетна', authenticated: false, icon: HomeRoundedIcon },
   { path: '/sessions', name: 'Сесии', authenticated: true, icon: TravelExploreRoundedIcon },
   { path: '/posts', name: 'Објави', authenticated: true, icon: ArticleRoundedIcon },
+  { path: '/top', name: 'Најдобри', authenticated: true, icon: EmojiEventsRoundedIcon },
   { path: '/donations', name: 'Донации', authenticated: true, icon: VolunteerActivismRoundedIcon },
 ];
 

@@ -13,6 +13,7 @@ const SessionsPage = lazy(() => import('./ui/pages/session/SessionsPage/Sessions
 const SessionDetailsPage = lazy(() => import('./ui/pages/session/SessionDetailsPage/SessionDetailsPage.tsx'));
 const PostsPage = lazy(() => import('./ui/pages/post/PostsPage/PostsPage.tsx'));
 const PostDetailsPage = lazy(() => import('./ui/pages/post/PostDetailsPage/PostDetailsPage.tsx'));
+const TopPostsPage = lazy(() => import('./ui/pages/post/TopPostsPage/TopPostsPage.tsx'));
 const DonationsPage = lazy(() => import('./ui/pages/donation/DonationsPage/DonationsPage.tsx'));
 
 const PageLoader = () => (
@@ -41,6 +42,7 @@ function App() {
               </Route>
               <Route path='posts' element={<PostsPage/>}/>
               <Route path='posts/:id' element={<PostDetailsPage/>}/>
+              <Route path='top' element={<TopPostsPage/>}/>
               <Route path='donations' element={<DonationsPage/>}/>
             </Route>
           </Route>

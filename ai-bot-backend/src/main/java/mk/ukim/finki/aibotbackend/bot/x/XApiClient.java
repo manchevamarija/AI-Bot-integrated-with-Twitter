@@ -12,6 +12,7 @@ import mk.ukim.finki.aibotbackend.config.XProperties;
 import mk.ukim.finki.aibotbackend.model.domain.ExtractionTarget;
 import mk.ukim.finki.aibotbackend.model.dto.CreateExtractedPostDto;
 import mk.ukim.finki.aibotbackend.model.dto.CreateMediaItemDto;
+import mk.ukim.finki.aibotbackend.model.dto.PostEngagement;
 import mk.ukim.finki.aibotbackend.model.enums.MediaType;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
@@ -37,7 +38,7 @@ public class XApiClient {
             .uri(uri -> uri.path("/2/tweets/search/recent")
                 .queryParam("query", toQuery(target))
                 .queryParam("max_results", properties.effectiveMaxPosts())
-                .queryParam("tweet.fields", "id,text,author_id,created_at,lang,attachments")
+                .queryParam("tweet.fields", "id,text,author_id,created_at,lang,attachments,public_metrics")
                 .queryParam("expansions", "author_id,attachments.media_keys")
                 .queryParam("user.fields", "username")
                 .queryParam("media.fields", "media_key,type,url,preview_image_url,variants")
@@ -88,12 +89,29 @@ public class XApiClient {
                 result.add(new CreateExtractedPostDto(
                     id, "@" + handle, tweet.path("text").asText(),
                     "https://x.com/" + handle + "/status/" + id,
-                    postedAt, 0.0, items));
+                    postedAt, 0.0, items, engagement(tweet.path("public_metrics"))));
             });
             return result;
         } catch (Exception e) {
             throw new IllegalStateException("Could not parse X API response", e);
         }
+    }
+
+    private PostEngagement engagement(JsonNode metrics) {
+        if (metrics.isMissingNode() || metrics.isNull()) {
+            return PostEngagement.UNKNOWN;
+        }
+        return new PostEngagement(
+            count(metrics, "reply_count"),
+            count(metrics, "retweet_count"),
+            count(metrics, "like_count"),
+            count(metrics, "impression_count")
+        );
+    }
+
+    private Long count(JsonNode metrics, String field) {
+        JsonNode value = metrics.path(field);
+        return value.isNumber() ? value.asLong() : null;
     }
 
     private String bestMp4Variant(JsonNode media) {

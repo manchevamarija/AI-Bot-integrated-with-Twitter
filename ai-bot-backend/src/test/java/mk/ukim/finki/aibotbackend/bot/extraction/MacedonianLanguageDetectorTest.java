@@ -15,6 +15,21 @@ class MacedonianLanguageDetectorTest {
     }
 
     @Test
+    void acceptsMacedonianSentenceWithBeshe() {
+        // Regression: "беше" was once listed as a Bulgarian-only word and pushed
+        // ordinary Macedonian posts below the 50% threshold.
+        assertThat(detector.macedonianConfidence(
+            "Вчера беше многу убав ден во Скопје")).isGreaterThanOrEqualTo(0.5);
+    }
+
+    @Test
+    void acceptsMacedonianSentenceWithBile() {
+        assertThat(detector.macedonianConfidence(
+            "Сите биле на прославата, беше многу весело и ќе одиме пак утре."))
+            .isGreaterThanOrEqualTo(0.5);
+    }
+
+    @Test
     void rejectsLatinEnglishText() {
         assertThat(detector.macedonianConfidence(
             "This is an English post about software development.")).isLessThan(0.2);
